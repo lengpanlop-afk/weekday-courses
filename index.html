@@ -1,0 +1,1932 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>ตารางหลักสูตร จันทร์–ศุกร์ (Weekday_DB + CSV Import)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  /* ===== THEME: Weekday (Emerald/Teal) ===== */
+  body{
+    min-height:100vh;
+    background:
+      radial-gradient(1200px 600px at 15% -10%, #064e3b 0%, #052e2b 40%, #041f23 70%, #03181d 100%);
+    color:#e9fbf4;
+  }
+  .card{
+    background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));
+    border:1px solid rgba(148,163,184,.18);
+    border-radius:16px;
+    backdrop-filter:blur(6px);
+    box-shadow:0 10px 28px rgba(0,0,0,.28);
+  }
+  .btn{padding:.5rem .8rem;border-radius:10px;font-weight:700}
+  .btn-ghost{background:#062a27;color:#d1fae5;border:1px solid rgba(148,163,184,.25)}
+  .btn-primary{background:#10b981;color:#042016;box-shadow:0 8px 24px rgba(16,185,129,.35)}
+  .btn-danger{background:#ef4444;color:#fff}
+  .table-wrap{overflow:auto}
+  table{width:100%;min-width:1150px;border-collapse:separate;border-spacing:0}
+  thead th{position:sticky;top:0;background:#065f46;color:#ecfdf5;font-weight:800;padding:.6rem .75rem;z-index:5;text-align:center}
+  th,td{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-bottom:1px solid #e5e7eb;font-size:14px;text-align:center}
+  /* จัดเฉพาะข้อมูลคอลัมน์ "วิชา" ให้ชิดซ้าย แต่หัวคอลัมน์ยังคงอยู่ตรงกลาง */
+  td:nth-child(2) {
+    text-align: left !important;
+    padding-left: 12px;
+    font-family: 'Segoe UI', 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-weight: 600;
+    font-size: 15px;
+    color: #065f46 !important; /* สีเขียวเข้มอ่านง่าย */
+    letter-spacing: -0.2px;
+  }
+  /* ย้ำหัวคอลัมน์ "วิชา" ให้อยู่ตรงกลางเสมอ */
+  th:nth-child(2) {text-align: center !important;}
+  
+  tbody tr:nth-child(even){background:#ecfdf5} 
+  tbody tr:nth-child(odd){background:#ffffff}
+  tbody td{color:#052e2b;padding:.5rem .75rem}
+  .in{width:84px;text-align:center;border:1px solid #cbd5e1;border-radius:8px;padding:.35rem .5rem;background:#fff}
+  .badge{padding:4px 10px;border-radius:999px;font-weight:800}
+  .badge-red{background:#ef4444;color:#fff}
+  .badge-amber{background:#f59e0b;color:#1f2937}
+  .badge-green{background:#22c55e;color:#052e15}
+  .chart-wrap{height:300px}
+  .grid-main{display:grid;gap:14px;grid-template-columns:1fr}
+  @media(min-width:1280px){.grid-main{grid-template-columns:420px 1fr}}
+  dialog{border:none;border-radius:14px;max-width:1100px;width:96%;background:#062b27;color:#d1fae5}
+  dialog::backdrop{background:rgba(0,0,0,.55)}
+  textarea{width:100%;min-height:220px;border-radius:10px;background:#04211f;color:#d1fae5;border:1px solid #134e4a;padding:.75rem;font-family:ui-monospace,Menlo,Consolas,monospace}
+  .dropzone{border:2px dashed #134e4a;border-radius:12px;padding:14px;text-align:center;background:#072f2a}
+  .dropzone.drag{background:#0b3e37;border-color:#34d399}
+  .k{font-weight:800}
+  
+  /* totals */
+  .totals-bar{margin:.5rem 0 0 0;display:flex;gap:12px;flex-wrap:wrap}
+  .totals-pill{background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.02));
+    border:1px solid rgba(148,163,184,.25);border-radius:999px;padding:.55rem .9rem;display:flex;align-items:baseline;gap:.5rem}
+  .totals-pill .num{font-size:1.9rem;font-weight:900;line-height:1}
+  .chip{padding:.15rem .55rem;border-radius:999px;font-weight:800;font-size:.85rem}
+  .chip-red{background:#ef4444;color:#fff}
+  .chip-amber{background:#f59e0b;color:#1f2937}
+  .chip-green{background:#22c55e;color:#052e15}
+  
+  /* โหมดไม่มีสกรอล (Present/Kiosk) */
+  :root { --fs-present: 14px; --padY-present: 8px; }
+  body.present .grid-main{ grid-template-columns: 1fr !important; }
+  body.present aside{ display: none !important; }
+  body.present .table-wrap{ overflow: hidden !important; max-height: none !important; }
+  body.present th, body.present td{ font-size: var(--fs-present); padding: var(--padY-present) .75rem; line-height:1.15; }
+  
+  /* Hide Columns Feature */
+  .hidden-column { display: none !important; }
+  .relative.group:hover #hideColumnsMenu { display: block; }
+  
+  /* ปรับแต่งคอลัมน์จัดการให้อยู่ชิดซ้าย */
+  th:nth-child(11), td:nth-child(11) { text-align: left; }
+
+  /* Auto Adjust Button */
+  .btn-auto-adjust { background: #8b5cf6; color: white; }
+  
+  /* ==== จัดตำแหน่งคอลัมน์ "วิชา" ให้ข้อมูลชิดซ้าย แต่หัวคอลัมน์ตรงกลาง ==== */
+  th:nth-child(2) {
+    text-align: center !important;
+  }
+
+  /* ===== สไตล์เรียบง่าย ไม่มีเอฟเฟกต์ ===== */
+  thead th {
+    background: #065f46 !important; /* สีเขียวธรรมดา */
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    font-size: 13px;
+    border: none !important;
+  }
+
+  tbody tr {
+    transition: background-color 0.2s ease; /* แค่เปลี่ยนพื้นหลัง */
+  }
+
+  tbody tr:hover {
+    background: #f0fdf4 !important; /* สีเขียวอ่อนเมื่อ hover */
+  }
+
+  .badge {
+    font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: 0.5px;
+  }
+
+  .btn-primary {
+    background: #10b981; /* สีเขียวธรรมดา */
+  }
+
+  .btn-primary:hover {
+    background: #059669; /* สีเขียวเข้มขึ้นเมื่อ hover */
+  }
+</style>
+
+<!-- Plugin: sync doughnut colors with status chips (เต็มแล้ว=แดง, ใกล้เต็ม=เหลือง, รับได้=เขียว) -->
+<script>
+(function(){
+  function registerPlugin(){
+    if (!window.Chart || !Chart.register) return false;
+    const StatusColorPlugin = {
+      id: 'statusColorSync',
+      beforeUpdate(chart){
+        try{
+          if (!chart || chart.config?.type !== 'doughnut') return;
+          const map = {"เต็มแล้ว":"#ef4444","ใกล้เต็ม":"#f59e0b","รับได้":"#22c55e"};
+          const labels = chart.config?.data?.labels || [];
+          const colors = labels.map(l => map[l] || '#94a3b8');
+          (chart.data.datasets||[]).forEach(ds => {
+            ds.backgroundColor = colors;
+            ds.hoverBackgroundColor = colors;
+            if (typeof ds.borderWidth === 'undefined') ds.borderWidth = 0;
+          });
+        }catch(e){}
+      }
+    };
+    try{ Chart.register(StatusColorPlugin); }catch(e){}
+    return true;
+  }
+  if (!registerPlugin()){
+    let tries=0; const t=setInterval(()=>{ tries++; if (registerPlugin()||tries>40) clearInterval(t); },50);
+  }
+})();
+</script>
+
+</head>
+<body class="p-4 lg:p-6">
+  <header class="mb-4">
+    <div class="flex items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <!-- Emerald logo -->
+        <svg width="40" height="40" viewBox="0 0 64 64" aria-hidden="true">
+          <defs><linearGradient id="g1" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#34d399"/><stop offset="1" stop-color="#06b6d4"/>
+          </linearGradient></defs>
+          <circle cx="32" cy="32" r="30" fill="url(#g1)" opacity=".2"/>
+          <path d="M18 36c10-18 18-18 28 0-10 18-18 18-28 0z" fill="url(#g1)"/>
+        </svg>
+        <div>
+          <h1 class="text-xl font-extrabold leading-tight">ตารางหลักสูตร จันทร์–ศุกร์</h1>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <button type="button" id="btnFullscreen" class="btn btn-ghost">โหมดพรีเซนต์</button>
+        <button type="button" id="btnNoScroll"   class="btn btn-ghost">โหมดไม่มีสกรอล</button>
+        <button type="button" id="btnImport"     class="btn btn-primary">นำเข้า CSV</button>
+        <button type="button" id="btnAdd"        class="btn btn-ghost">เพิ่มแถวใหม่</button>
+        <button type="button" id="btnExport"     class="btn btn-ghost">ส่งออก CSV</button>
+        <button type="button" id="btnClear"      class="btn btn-ghost">รีเซ็ตเป็นตัวอย่าง</button>
+        
+        <!-- ปุ่ม Auto Adjust -->
+        <button type="button" id="btnAutoAdjust" class="btn btn-auto-adjust">Auto Adjust</button>
+        
+        <!-- Hide Columns Dropdown -->
+        <div class="relative group">
+          <button type="button" id="btnHideColumns" class="btn btn-ghost">ซ่อนคอลัมน์</button>
+          <div id="hideColumnsMenu" class="hidden absolute right-0 mt-1 w-64 bg-[#062a27] border border-[#134e4a] rounded-lg shadow-lg z-50 p-3">
+            <div class="text-sm font-bold mb-2 text-[#d1fae5]">เลือกคอลัมน์ที่ต้องการซ่อน:</div>
+            <div class="space-y-2 max-h-60 overflow-y-auto">
+              <label class="flex items-center gap-2 text-sm text-[#d1fae5]">
+                <input type="checkbox" class="column-toggle" data-column="0" checked> No.
+              </label>
+              <label class="flex items-center gap-2 text-sm text-[#d1fae5]">
+                <input type="checkbox" class="column-toggle" data-column="1" checked> วิชา
+              </label>
+              <label class="flex items-center gap-2 text-sm text-[#d1fae5]">
+                <input type="checkbox" class="column-toggle" data-column="2" checked> รุ่น
+              </label>
+              <label class="flex items-center gap-2 text-sm text-[#d1fae5]">
+                <input type="checkbox" class="column-toggle" data-column="3" checked> วันเปิดรับสมัคร
+              </label>
+              <label class="flex items-center gap-2 text-sm text-[#d1fae5]">
+                <input type="checkbox" class="column-toggle" data-column="4" checked> วันที่เริ่มเรียน
+              </label>
+              <label class="flex items-center gap-2 text-sm text-[#d1fae5]">
+                <input type="checkbox" class="column-toggle" data-column="5" checked> จำนวนที่รับ
+              </label>
+              <label class="flex items-center gap-2 text-sm text-[#d1fae5]">
+                <input type="checkbox" class="column-toggle" data-column="6" checked> สมัครแล้ว
+              </label>
+              <label class="flex items-center gap-2 text-sm text-[#d1fae5]">
+                <input type="checkbox" class="column-toggle" data-column="7" checked> คงเหลือ
+              </label>
+              <label class="flex items-center gap-2 text-sm text-[#d1fae5]">
+                <input type="checkbox" class="column-toggle" data-column="8" checked> สถานะ
+              </label>
+              <label class="flex items-center gap-2 text-sm text-[#d1fae5]">
+                <input type="checkbox" class="column-toggle" data-column="9" checked> สำรอง
+              </label>
+              <label class="flex items-center gap-2 text-sm text-[#d1fae5]">
+                <input type="checkbox" class="column-toggle" data-column="10" checked> จัดการ
+              </label>
+            </div>
+            <div class="flex justify-between mt-3 pt-2 border-t border-[#134e4a]">
+              <button type="button" id="btnHideAllColumns" class="btn btn-ghost text-xs">ซ่อนทั้งหมด</button>
+              <button type="button" id="btnShowAllColumns" class="btn btn-ghost text-xs">แสดงทั้งหมด</button>
+            </div>
+          </div>
+        </div>
+
+        <button type="button" id="btnBackupJSON"  class="btn btn-ghost">Backup JSON</button>
+        <button type="button" id="btnRestoreJSON" class="btn btn-ghost">Restore JSON</button>
+        <input id="jsonFileInput" type="file" accept=".json,application/json" class="hidden" />
+        <button id="btnHardReset"  class="btn btn-danger">ล้างฐาน (Hard Reset)</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- สรุปรวม -->
+  <div id="totalsBarContainer" class="totals-bar">
+    <div class="totals-pill"><span>ผู้สมัครรวมทั้งหมด</span>
+      <strong class="num" id="totalApplicantsNum">0</strong><span>คน</span><select id="batchFilter" class="ml-3 px-2 py-1 rounded text-black text-sm"><option value="all">ทุกรุ่น</option></select></div>
+    <div class="totals-pill"><span>สถานะรวม:</span>
+      <span class="chip chip-red"   id="chipFull">เต็มแล้ว 0</span>
+      <span class="chip chip-amber" id="chipNear">ใกล้เต็ม 0</span>
+      <span class="chip chip-green" id="chipOk">รับได้ 0</span>
+    </div>
+  </div>
+
+  <section class="grid-main">
+    <aside class="space-y-3 order-2 xl:order-1">
+      <div class="card p-4">
+        <h3 class="font-bold mb-2">สรุปสถานะที่นั่ง</h3>
+        <div class="chart-wrap"><canvas id="chartStatus"></canvas></div>
+        <p class="text-xs opacity-80 mt-2">สถานะ: <span class="badge badge-red">เต็มแล้ว</span> / <span class="badge badge-amber">ใกล้เต็ม (≥80%)</span> / <span class="badge badge-green">รับได้</span></p>
+      </div>
+      <div class="card p-4">
+        <h3 class="font-bold mb-2">จำนวนสมัครแล้วตามวิชา</h3>
+        <div class="chart-wrap"><canvas id="chartCourse"></canvas></div>
+      </div>
+    </aside>
+
+    <section class="card p-0 overflow-hidden order-1 xl:order-2">
+      <div class="table-wrap max-h-[62vh]">
+        <table id="mainTable">
+          <thead>
+            <tr>
+              <th>No.</th><th>วิชา</th><th>รุ่น</th><th>วันเปิดรับสมัคร</th><th>วันที่เริ่มเรียน</th>
+              <th>จำนวนที่รับ</th><th>สมัครแล้ว</th><th>คงเหลือ</th><th>สถานะ</th><th>สำรอง</th><th>จัดการ</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+      <div class="flex items-center justify-between px-3 py-2 text-xs text-emerald-50/80 bg-emerald-900/20">
+        <div id="rowsInfo">แสดง 0 รายการ</div>
+        <div id="updatedAt">ข้อมูลล่าสุด: -</div>
+      </div>
+    </section>
+  </section>
+
+  <!-- Import CSV Dialog -->
+  <dialog id="dlgImport">
+    <form method="dialog" class="p-4 space-y-3">
+      <div class="flex items-center justify-between gap-3">
+        <h3 class="text-lg font-bold">นำเข้าข้อมูลจาก CSV</h3>
+        <div class="flex items-center gap-2">
+          <button id="btnDownloadTemplate" type="button" class="btn btn-ghost">ดาวน์โหลดแม่แบบ .csv</button>
+          <button id="btnCloseImport" value="cancel" class="btn btn-ghost">ปิด</button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="space-y-2">
+          <label class="k">เลือกไฟล์</label>
+          <input id="csvFile" type="file" accept=".csv,text/csv" class="w-full text-sm"/>
+          <div id="dropArea" class="dropzone text-sm">ลากไฟล์ .csv มาวางที่นี่ หรือเลือกไฟล์ด้านบน</div>
+          <div class="text-xs opacity-80">รองรับตัวคั่น , ; และแท็บ / รองรับค่าที่มี "…" และคอมมาในค่า</div>
+        </div>
+        <div class="space-y-2">
+          <label class="k">หรือ วาง CSV</label>
+          <textarea id="csvArea" placeholder='subject,batch,openDate,learnDate,cap,reg,reserve&#10;"วิชา…",1/69,16/09/2568,7 ต.ค. - 29 พ.ย. 2568,20,11,0'></textarea>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+        <label class="flex items-center gap-2 text-sm">
+          <input id="hasHeader" type="checkbox" class="scale-110" checked>
+          ไฟล์มีหัวตาราง (Header)
+        </label>
+        <div class="text-sm">
+          โหมดการนำเข้า:
+          <label class="ml-2"><input type="radio" name="mode" id="modeReplace" checked> แทนที่ทั้งหมด</label>
+          <label class="ml-4"><input type="radio" name="mode" id="modeMerge"> รวมข้อมูล (อัปเดตตาม วิชา+รุ่น)</label>
+        </div>
+        <div class="flex justify-end">
+          <button id="btnParseCSV" type="button" class="btn btn-primary">พรีวิว/ตั้งค่าแมปคอลัมน์</button>
+        </div>
+      </div>
+
+      <div id="mapFields" class="hidden card p-3"></div>
+      <div id="csvPreview" class="hidden card p-3 overflow-auto max-h-[40vh] bg-[#072f2a]"></div>
+
+      <div class="flex items-center justify-between">
+        <div class="text-xs opacity-75">คอลัมน์ที่ต้องการ: <code>subject,batch,openDate,learnDate,cap,reg,reserve</code> (ไม่ต้องมี <code>left</code> ระบบคำนวณให้)</div>
+        <div class="flex items-center gap-2">
+          <button id="btnCommitCSV" type="button" class="btn btn-primary" disabled>นำเข้าลงฐานข้อมูล</button>
+        </div>
+      </div>
+    </form>
+  </dialog>
+
+<script>
+/* ===================== CONFIG (Weekday) - แก้ไขแล้ว ===================== */
+const DB_NAME = 'Weekday_DB';
+const DB_VERSION = 1;
+const STORE = 'courses';
+const AUTO_SEED = true; // ← เปลี่ยนเป็น true
+const OLD_DB_NAMES = ['weekday_db', 'Weekend_DB', 'weekend_db'];
+
+/* ===== CSV ตัวอย่าง (จันทร์–ศุกร์) ===== */
+const SAMPLE_CSV = [
+"วิชาคอมพิวเตอร์ธุรกิจ (60 ชั่วโมง),1/69,16/09/2568,7 ต.ค. - 29 พ.ย. 2568,20,18,2",
+"วิชาภาษาอังกฤษสื่อสาร (60 ชั่วโมง),1/69,16/09/2568,7 ต.ค. - 29 พ.ย. 2568,20,17,3",
+"วิชาการเงินส่วนบุคคล (40 ชั่วโมง),1/69,16/09/2568,14 ต.ค. - 22 พ.ย. 2568,25,19,0",
+"วิชาการตลาดดิจิทัล (60 ชั่วโมง),1/69,16/09/2568,7 ต.ค. - 29 พ.ย. 2568,20,15,0",
+"วิชากราฟิกดีไซน์ (80 ชั่วโมง),1/69,17/09/2568,8 ต.ค. - 27 พ.ย. 2568,15,12,0",
+"วิชาตัดเย็บขั้นพื้นฐาน (80 ชั่วโมง),1/69,17/09/2568,8 ต.ค. - 27 พ.ย. 2568,15,9,0",
+"วิชาดาต้าอนาไลติกส์เบื้องต้น (60 ชั่วโมง),1/69,18/09/2568,9 ต.ค. - 28 พ.ย. 2568,20,11,0",
+"วิชางานครัวและเบเกอรี่ (60 ชั่วโมง),1/69,18/09/2568,9 ต.ค. - 28 พ.ย. 2568,20,20,4",
+"วิชาซ่อมคอมพิวเตอร์เบื้องต้น (60 ชั่วโมง),1/69,18/09/2568,9 ต.ค. - 28 พ.ย. 2568,20,16,0"
+].join("\n");
+
+/* ===================== Helpers ===================== */
+const byId = id => document.getElementById(id);
+const qs   = sel => document.querySelector(sel);
+
+/* ===================== IndexedDB helpers (แก้ไขให้เสถียร) ===================== */
+const __idbConns = new Set();
+
+function openDB() {
+    return new Promise((resolve, reject) => {
+        console.log('📂 Opening database:', DB_NAME);
+        const req = indexedDB.open(DB_NAME, DB_VERSION);
+        
+        req.onerror = () => {
+            console.error('❌ Database opening error:', req.error);
+            reject(req.error);
+        };
+        
+        req.onupgradeneeded = (e) => {
+            const db = e.target.result;
+            console.log('🔄 Upgrading DB...');
+            if (!db.objectStoreNames.contains(STORE)) {
+                db.createObjectStore(STORE, { keyPath: 'id' });
+                console.log('✅ Object store created');
+            }
+        };
+        
+        req.onsuccess = (e) => {
+            const db = e.target.result;
+            __idbConns.add(db);
+            console.log('✅ Database opened successfully');
+            
+            db.onversionchange = () => {
+                console.log('🔄 Database version changed, closing...');
+                db.close();
+                __idbConns.delete(db);
+            };
+            
+            resolve(db);
+        };
+    });
+}
+
+// แก้ไขฟังก์ชัน idbGetAll ให้เสถียรขึ้น
+async function idbGetAll() {
+    let db;
+    try {
+        db = await openDB();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction([STORE], 'readonly');
+            const store = tx.objectStore(STORE);
+            const request = store.getAll();
+            
+            request.onsuccess = () => {
+                console.log('📥 Data retrieved:', request.result.length, 'items');
+                resolve(request.result || []);
+            };
+            
+            request.onerror = () => {
+                console.error('❌ Error getting data:', request.error);
+                reject(request.error);
+            };
+            
+            // ✅ รอให้ transaction เสร็จก่อนค่อยปิด connection
+            tx.oncomplete = () => {
+                console.log('✅ Transaction completed');
+                try { 
+                    db.close(); 
+                    __idbConns.delete(db);
+                } catch(e) {
+                    console.warn('Warning closing db:', e);
+                }
+            };
+            
+            tx.onerror = () => {
+                console.error('❌ Transaction error:', tx.error);
+                reject(tx.error);
+            };
+        });
+    } catch (error) {
+        console.error('❌ Error in idbGetAll:', error);
+        if (db) {
+            try { 
+                db.close(); 
+                __idbConns.delete(db);
+            } catch(e) {}
+        }
+        return [];
+    }
+}
+
+// แก้ไขฟังก์ชัน idbPut ให้เสถียรขึ้น
+async function idbPut(item) {
+    let db;
+    try {
+        db = await openDB();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction([STORE], 'readwrite');
+            const store = tx.objectStore(STORE);
+            
+            if (!item.id) {
+                item.id = uid();
+            }
+            
+            const request = store.put(item);
+            
+            request.onsuccess = () => {
+                console.log('💾 Data saved:', item.subject);
+                resolve(true);
+            };
+            
+            request.onerror = () => {
+                console.error('❌ Error saving data:', request.error);
+                reject(request.error);
+            };
+            
+            // ✅ รอให้ transaction เสร็จก่อนค่อยปิด connection
+            tx.oncomplete = () => {
+                console.log('✅ Save transaction completed');
+                try { 
+                    db.close(); 
+                    __idbConns.delete(db);
+                } catch(e) {
+                    console.warn('Warning closing db:', e);
+                }
+            };
+            
+            tx.onerror = () => {
+                console.error('❌ Save transaction error:', tx.error);
+                reject(tx.error);
+            };
+        });
+    } catch (error) {
+        console.error('❌ Error in idbPut:', error);
+        if (db) {
+            try { 
+                db.close(); 
+                __idbConns.delete(db);
+            } catch(e) {}
+        }
+        throw error;
+    }
+}
+
+// แก้ไขฟังก์ชัน idbBulkPut
+async function idbBulkPut(items) {
+    let db;
+    try {
+        db = await openDB();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction([STORE], 'readwrite');
+            const store = tx.objectStore(STORE);
+            
+            items.forEach(item => {
+                if (!item.id) {
+                    item.id = uid();
+                }
+                store.put(item);
+            });
+            
+            tx.oncomplete = () => {
+                console.log('💾 Bulk save completed:', items.length, 'items');
+                resolve(true);
+            };
+            
+            tx.onerror = () => {
+                console.error('❌ Bulk save error:', tx.error);
+                reject(tx.error);
+            };
+            
+            // ✅ รอให้ transaction เสร็จก่อนค่อยปิด connection
+            tx.oncomplete = () => {
+                console.log('✅ Bulk transaction completed');
+                try { 
+                    db.close(); 
+                    __idbConns.delete(db);
+                } catch(e) {
+                    console.warn('Warning closing db:', e);
+                }
+            };
+        });
+    } catch (error) {
+        console.error('❌ Error in idbBulkPut:', error);
+        if (db) {
+            try { 
+                db.close(); 
+                __idbConns.delete(db);
+            } catch(e) {}
+        }
+        throw error;
+    }
+}
+
+// แก้ไขฟังก์ชัน idbDelete
+async function idbDelete(id) {
+    let db;
+    try {
+        db = await openDB();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction([STORE], 'readwrite');
+            const store = tx.objectStore(STORE);
+            const request = store.delete(id);
+            
+            request.onsuccess = () => {
+                console.log('🗑️ Data deleted:', id);
+                resolve(true);
+            };
+            
+            request.onerror = () => {
+                console.error('❌ Error deleting data:', request.error);
+                reject(request.error);
+            };
+            
+            // ✅ รอให้ transaction เสร็จก่อนค่อยปิด connection
+            tx.oncomplete = () => {
+                console.log('✅ Delete transaction completed');
+                try { 
+                    db.close(); 
+                    __idbConns.delete(db);
+                } catch(e) {
+                    console.warn('Warning closing db:', e);
+                }
+            };
+        });
+    } catch (error) {
+        console.error('❌ Error in idbDelete:', error);
+        if (db) {
+            try { 
+                db.close(); 
+                __idbConns.delete(db);
+            } catch(e) {}
+        }
+        throw error;
+    }
+}
+
+// แก้ไขฟังก์ชัน idbClear
+async function idbClear() {
+    let db;
+    try {
+        db = await openDB();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction([STORE], 'readwrite');
+            const store = tx.objectStore(STORE);
+            const request = store.clear();
+            
+            request.onsuccess = () => {
+                console.log('🧹 Database cleared');
+                resolve(true);
+            };
+            
+            request.onerror = () => {
+                console.error('❌ Error clearing database:', request.error);
+                reject(request.error);
+            };
+            
+            // ✅ รอให้ transaction เสร็จก่อนค่อยปิด connection
+            tx.oncomplete = () => {
+                console.log('✅ Clear transaction completed');
+                try { 
+                    db.close(); 
+                    __idbConns.delete(db);
+                } catch(e) {
+                    console.warn('Warning closing db:', e);
+                }
+            };
+        });
+    } catch (error) {
+        console.error('❌ Error in idbClear:', error);
+        if (db) {
+            try { 
+                db.close(); 
+                __idbConns.delete(db);
+            } catch(e) {}
+        }
+        throw error;
+    }
+}
+
+/* ===================== Hard Reset ===================== */
+function deleteDBOnce(name) {
+    return new Promise(resolve => {
+        console.log('🗑️ Deleting database:', name);
+        const req = indexedDB.deleteDatabase(name);
+        let s = 'pending';
+        req.onblocked = () => { 
+            s = 'blocked'; 
+            console.warn('⚠️ Database blocked:', name);
+            resolve({name, status: s}); 
+        };
+        req.onerror = () => { 
+            s = 'error'; 
+            console.error('❌ Database deletion error:', name, req.error);
+            resolve({name, status: s, error: req.error}); 
+        };
+        req.onsuccess = () => { 
+            s = 'deleted'; 
+            console.log('✅ Database deleted:', name);
+            resolve({name, status: s}); 
+        };
+    });
+}
+
+async function clearStoreFallback() {
+    try {
+        await idbClear();
+        return {status: 'cleared-store'};
+    } catch(e) {
+        console.error('❌ Clear store fallback error:', e);
+        return {status: 'failed', error: e};
+    }
+}
+
+function setSkipSeedOnce() {
+    try {
+        sessionStorage.setItem('SKIP_SEED_ONCE', '1');
+        console.log('⏭️ Skip seed flag set');
+    } catch(e) {
+        console.warn('⚠️ Cannot set skip seed flag:', e);
+    }
+}
+
+function consumeSkipSeedOnce() {
+    try {
+        sessionStorage.removeItem('SKIP_SEED_ONCE');
+        console.log('⏭️ Skip seed flag consumed');
+    } catch(e) {
+        console.warn('⚠️ Cannot remove skip seed flag:', e);
+    }
+}
+
+function shouldSeed() {
+    try {
+        const should = AUTO_SEED && !sessionStorage.getItem('SKIP_SEED_ONCE');
+        console.log('🌱 Should seed:', should);
+        return should;
+    } catch(e) {
+        console.warn('⚠️ Error checking seed condition:', e);
+        return AUTO_SEED;
+    }
+}
+
+async function hardReset({silent = false, reload = true} = {}) {
+    console.log('🔄 Starting hard reset...');
+    await idbCloseAll();
+    
+    try {
+        const bc = new BroadcastChannel('Weekday_DB_reset');
+        bc.postMessage('RESET');
+        bc.close();
+        console.log('📢 Broadcast reset message');
+    } catch(e) {
+        console.warn('⚠️ Broadcast channel error:', e);
+    }
+    
+    try {
+        localStorage.removeItem('ai_weekday_table_v1');
+        Object.keys(localStorage).forEach(k => {
+            if (/(weekday|weekend|ai_week(day|end))/i.test(k)) {
+                localStorage.removeItem(k);
+                console.log('🗑️ Removed localStorage key:', k);
+            }
+        });
+    } catch(e) {
+        console.warn('⚠️ LocalStorage cleanup error:', e);
+    }
+    
+    let results = [];
+    results.push(await deleteDBOnce(DB_NAME));
+    for (const n of OLD_DB_NAMES) {
+        results.push(await deleteDBOnce(n));
+    }
+    
+    if (results.some(r => r.status === 'blocked' || r.status === 'error')) {
+        const fb = await clearStoreFallback();
+        if (!silent) {
+            alert(`ลบฐานถูกบล็อก/ล้มเหลว → เคลียร์ store แทน (${fb.status})`);
+        }
+    } else if (!silent) {
+        alert(results.map(r => `${r.name}: ${r.status}`).join('\n'));
+    }
+    
+    if (reload) {
+        console.log('🔄 Reloading page...');
+        location.reload();
+    }
+}
+
+// Close all connections
+async function idbCloseAll() {
+    console.log('🔒 Closing all database connections...');
+    for (const db of Array.from(__idbConns)) {
+        try {
+            db.close();
+            console.log('✅ Closed database connection');
+        } catch(e) {
+            console.warn('⚠️ Error closing database:', e);
+        }
+        __idbConns.delete(db);
+    }
+    await new Promise(r => setTimeout(r, 100));
+}
+
+// Broadcast channel listener
+try {
+    const bcListen = new BroadcastChannel('Weekday_DB_reset');
+    bcListen.onmessage = async (ev) => {
+        if (ev?.data === 'RESET') {
+            console.log('📢 Received reset broadcast');
+            await idbCloseAll();
+            location.reload();
+        }
+    };
+} catch(e) {
+    console.warn('⚠️ Broadcast channel listener error:', e);
+}
+
+/* ===================== Utilities ===================== */
+function uid() {
+    return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
+function escapeHtml(s) {
+    return String(s).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", "&#39;");
+}
+
+function nowThai() {
+    const d = new Date();
+    const y = d.getFullYear() + 543;
+    const p = n => String(n).padStart(2, '0');
+    return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${y} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+
+function clampNum(v, min) {
+    const n = parseInt((v ?? '').toString().replace(/[, ]/g, ''), 10);
+    return isNaN(n) ? min : Math.max(min, n);
+}
+
+/* ===================== App ===================== */
+let chartStatus = null, chartCourse = null;
+
+// Auto reset by URL
+(function autoResetByURL() {
+    const q = new URLSearchParams(location.search);
+    if (q.get('reset') === '1' || location.hash === '#reset-idb' || location.hash === '#hard-reset') {
+        console.log('🔗 URL reset triggered');
+        setSkipSeedOnce();
+        hardReset({silent: true, reload: true});
+    }
+})();
+
+// Initialize app
+(async function init() {
+    console.log('🚀 Initializing app...');
+    try {
+        const rows = await idbGetAll();
+        console.log('📊 Loaded rows:', rows.length);
+        
+        if (rows.length === 0 && shouldSeed()) {
+            console.log('🌱 Seeding with sample data...');
+            await importCSV(SAMPLE_CSV);
+        }
+        
+        consumeSkipSeedOnce();
+        bindHeader();
+        setupColumnHiding();
+        bindDelegation();
+        await render();
+        refreshTotals();
+        console.log('✅ App initialized successfully');
+    } catch (error) {
+        console.error('❌ Error initializing app:', error);
+        alert('เกิดข้อผิดพลาดในการโหลดข้อมูล: ' + error.message);
+    }
+})();
+
+function bindHeader() {
+    // Fullscreen
+    byId('btnFullscreen').addEventListener('click', async () => {
+        try {
+            if (!document.fullscreenElement) {
+                await document.documentElement.requestFullscreen();
+            } else {
+                await document.exitFullscreen();
+            }
+        } catch(e) {
+            console.warn('Fullscreen error:', e);
+        }
+    });
+
+    // No scroll mode
+    byId('btnNoScroll').addEventListener('click', () => {
+        const on = !document.body.classList.contains('present');
+        document.body.classList.toggle('present', on);
+        if (on) fitToViewport();
+    });
+
+    window.addEventListener('resize', () => {
+        if (document.body.classList.contains('present')) {
+            fitToViewport();
+        }
+    });
+
+    // Add new row - แก้ไขให้เรียก render() หลังเพิ่มข้อมูล
+    byId('btnAdd').addEventListener('click', async () => {
+        try {
+            const newItem = {
+                id: uid(),
+                subject: 'ชื่อวิชาใหม่',
+                batch: '1/xx',
+                openDate: '-',
+                learnDate: '-',
+                cap: 15,
+                reg: 0,
+                left: 15,
+                reserve: 0
+            };
+            console.log('➕ Adding new row...');
+            await idbPut(newItem);
+            await render(); // รีเฟรชตารางหลังเพิ่มข้อมูล
+            refreshTotalsWithCurrentFilter();
+            console.log('✅ New row added successfully');
+        } catch (error) {
+            console.error('❌ Error adding row:', error);
+            alert('เกิดข้อผิดพลาดในการเพิ่มข้อมูล');
+        }
+    });
+
+    // Clear data
+    byId('btnClear').addEventListener('click', async () => {
+        if (confirm('รีเซ็ตเป็นข้อมูลตัวอย่างหรือไม่?')) {
+            try {
+                console.log('🔄 Resetting to sample data...');
+                await idbClear();
+                await importCSV(SAMPLE_CSV);
+                await render();
+                refreshTotalsWithCurrentFilter();
+                console.log('✅ Reset completed');
+            } catch (error) {
+                console.error('❌ Error clearing data:', error);
+                alert('เกิดข้อผิดพลาดในการรีเซ็ตข้อมูล');
+            }
+        }
+    });
+
+    // Export CSV
+    byId('btnExport').addEventListener('click', async () => {
+        try {
+            const rows = await idbGetAll();
+            const header = ['subject', 'batch', 'openDate', 'learnDate', 'cap', 'reg', 'left', 'reserve'];
+            const lines = [header.join(',')];
+            
+            rows.forEach(r => {
+                lines.push([
+                    q(r.subject),
+                    q(r.batch),
+                    q(r.openDate),
+                    q(r.learnDate),
+                    r.cap,
+                    r.reg,
+                    r.left,
+                    r.reserve || 0
+                ].join(','));
+            });
+            
+            const blob = new Blob([lines.join('\n')], {type: 'text/csv;charset=utf-8;'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'weekday_courses.csv';
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => {
+                URL.revokeObjectURL(url);
+                a.remove();
+            }, 0);
+            
+            function q(s) {
+                return `"${String(s || '').replaceAll('"', '""')}"`;
+            }
+            
+            console.log('📤 CSV exported:', rows.length, 'rows');
+        } catch (error) {
+            console.error('❌ Error exporting CSV:', error);
+            alert('เกิดข้อผิดพลาดในการส่งออกข้อมูล');
+        }
+    });
+
+    // ==== Import CSV ====
+    byId('btnImport').addEventListener('click', () => {
+        byId('csvArea').value = '';
+        byId('csvFile').value = '';
+        qs('#csvPreview').classList.add('hidden');
+        qs('#mapFields').classList.add('hidden');
+        byId('btnCommitCSV').disabled = true;
+        byId('hasHeader').checked = true;
+        byId('dlgImport').showModal();
+    });
+
+    byId('btnCloseImport').addEventListener('click', () => byId('dlgImport').close());
+
+    byId('btnDownloadTemplate').addEventListener('click', () => {
+        const header = 'subject,batch,openDate,learnDate,cap,reg,reserve\n';
+        const blob = new Blob([header + SAMPLE_CSV], {type: 'text/csv;charset=utf-8;'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'template_weekday_courses.csv';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+            URL.revokeObjectURL(url);
+            a.remove();
+        }, 0);
+    });
+
+    byId('csvFile').addEventListener('change', async e => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        try {
+            const text = await file.text();
+            byId('csvArea').value = text.trim();
+        } catch (error) {
+            console.error('❌ Error reading file:', error);
+            alert('เกิดข้อผิดพลาดในการอ่านไฟล์');
+        }
+    });
+
+    const dropArea = byId('dropArea');
+    ['dragenter', 'dragover'].forEach(ev => {
+        dropArea.addEventListener(ev, e => {
+            e.preventDefault();
+            dropArea.classList.add('drag');
+        });
+    });
+    
+    ['dragleave', 'drop'].forEach(ev => {
+        dropArea.addEventListener(ev, e => {
+            e.preventDefault();
+            dropArea.classList.remove('drag');
+        });
+    });
+    
+    dropArea.addEventListener('drop', async e => {
+        const file = e.dataTransfer?.files?.[0];
+        if (!file) return;
+        try {
+            const text = await file.text();
+            byId('csvArea').value = text.trim();
+        } catch (error) {
+            console.error('❌ Error reading dropped file:', error);
+            alert('เกิดข้อผิดพลาดในการอ่านไฟล์');
+        }
+    });
+
+    byId('btnParseCSV').addEventListener('click', () => parseAndPreview());
+    byId('btnCommitCSV').addEventListener('click', commitImport);
+
+    // Hard reset
+    byId('btnHardReset')?.addEventListener('click', async () => {
+        if (confirm('ยืนยันล้างฐาน IndexedDB ทั้งหมดของหน้านี้?\n(รวมคีย์ LocalStorage ที่เกี่ยวข้อง และจะไม่ใส่ข้อมูลตัวอย่างให้อัตโนมัติ)')) {
+            setSkipSeedOnce();
+            await hardReset({silent: false, reload: true});
+        }
+    });
+
+    // Auto Adjust Button
+    byId('btnAutoAdjust').addEventListener('click', autoAdjustTable);
+}
+
+/* ====== Hide Columns Feature ====== */
+function setupColumnHiding() {
+    const hideColumnsBtn = byId('btnHideColumns');
+    const hideColumnsMenu = byId('hideColumnsMenu');
+    const columnToggles = document.querySelectorAll('.column-toggle');
+    const hideAllBtn = byId('btnHideAllColumns');
+    const showAllBtn = byId('btnShowAllColumns');
+    
+    hideColumnsBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        hideColumnsMenu.classList.toggle('hidden');
+    });
+    
+    document.addEventListener('click', () => {
+        hideColumnsMenu.classList.add('hidden');
+    });
+    
+    hideColumnsMenu.addEventListener('click', (e) => {
+        e.stopPropagation();
+    });
+    
+    columnToggles.forEach(toggle => {
+        toggle.addEventListener('change', (e) => {
+            const columnIndex = parseInt(e.target.dataset.column);
+            const isHidden = !e.target.checked;
+            toggleColumn(columnIndex, isHidden);
+            saveColumnVisibility();
+        });
+    });
+    
+    hideAllBtn.addEventListener('click', () => {
+        columnToggles.forEach(toggle => {
+            toggle.checked = false;
+            const columnIndex = parseInt(toggle.dataset.column);
+            toggleColumn(columnIndex, true);
+        });
+        saveColumnVisibility();
+    });
+    
+    showAllBtn.addEventListener('click', () => {
+        columnToggles.forEach(toggle => {
+            toggle.checked = true;
+            const columnIndex = parseInt(toggle.dataset.column);
+            toggleColumn(columnIndex, false);
+        });
+        saveColumnVisibility();
+    });
+    
+    loadColumnVisibility();
+}
+
+function toggleColumn(columnIndex, hide) {
+    const table = document.querySelector('table');
+    if (!table) return;
+    
+    const headerCells = table.querySelectorAll('thead th');
+    if (headerCells[columnIndex]) {
+        headerCells[columnIndex].classList.toggle('hidden-column', hide);
+    }
+    
+    const bodyRows = table.querySelectorAll('tbody tr');
+    bodyRows.forEach(row => {
+        const cell = row.cells[columnIndex];
+        if (cell) {
+            cell.classList.toggle('hidden-column', hide);
+        }
+    });
+}
+
+function saveColumnVisibility() {
+    const visibility = {};
+    document.querySelectorAll('.column-toggle').forEach(toggle => {
+        const columnIndex = parseInt(toggle.dataset.column);
+        visibility[columnIndex] = toggle.checked;
+    });
+    
+    try {
+        localStorage.setItem('columnVisibility', JSON.stringify(visibility));
+    } catch (e) {
+        console.warn('⚠️ ไม่สามารถบันทึกการตั้งค่าคอลัมน์ได้:', e);
+    }
+}
+
+function loadColumnVisibility() {
+    try {
+        const saved = localStorage.getItem('columnVisibility');
+        if (saved) {
+            const visibility = JSON.parse(saved);
+            document.querySelectorAll('.column-toggle').forEach(toggle => {
+                const columnIndex = parseInt(toggle.dataset.column);
+                if (visibility.hasOwnProperty(columnIndex)) {
+                    toggle.checked = visibility[columnIndex];
+                    toggleColumn(columnIndex, !visibility[columnIndex]);
+                }
+            });
+        }
+    } catch (e) {
+        console.warn('⚠️ ไม่สามารถโหลดการตั้งค่าคอลัมน์ได้:', e);
+    }
+}
+
+function fitToViewport() {
+    const table = document.querySelector('table');
+    const tb = table?.tBodies?.[0];
+    if (!table || !tb || !tb.rows.length) return;
+    
+    const headerH = document.querySelector('header')?.offsetHeight || 0;
+    const totalsH = byId('totalsBarContainer')?.offsetHeight || 0;
+    const footerH = byId('updatedAt')?.parentElement?.offsetHeight || 0;
+    const availH = window.innerHeight - headerH - totalsH - footerH - 24;
+    const theadH = table.tHead?.offsetHeight || 0;
+    
+    let chosenFS = 14, chosenPad = 8;
+    for (let fs = 16; fs >= 10; fs--) {
+        const pad = Math.max(2, Math.floor((fs / 16) * 8));
+        document.documentElement.style.setProperty('--fs-present', fs + 'px');
+        document.documentElement.style.setProperty('--padY-present', pad + 'px');
+        const rowH = tb.rows[0].getBoundingClientRect().height || 24;
+        const need = theadH + rowH * tb.rows.length;
+        if (need <= availH) {
+            chosenFS = fs;
+            chosenPad = pad;
+            break;
+        }
+        if (fs === 10) {
+            chosenFS = fs;
+            chosenPad = pad;
+        }
+    }
+    document.documentElement.style.setProperty('--fs-present', chosenFS + 'px');
+    document.documentElement.style.setProperty('--padY-present', chosenPad + 'px');
+}
+
+/* ตาราง: แก้ไข/บันทึก/ลบ */
+function bindDelegation() {
+    const tbody = byId('tbody');
+    tbody.addEventListener('click', async (e) => {
+        const btn = e.target.closest('button[data-act]');
+        if (!btn) return;
+        
+        const id = btn.dataset.id;
+        const act = btn.dataset.act;
+        
+        if (act === 'edit') {
+            const rows = await idbGetAll();
+            const r = rows.find(x => x.id === id);
+            if (!r) return;
+            btn.closest('tr').innerHTML = editRowHtml(r);
+            return;
+        }
+        
+        if (act === 'cancel') {
+            const rows = await idbGetAll();
+            const r = rows.find(x => x.id === id);
+            if (!r) return;
+            const index = rows.findIndex(x => x.id === id);
+            btn.closest('tr').innerHTML = viewRowHtml(r, index);
+            return;
+        }
+        
+        if (act === 'save') {
+            btn.disabled = true;
+            try {
+                const tr = btn.closest('tr');
+                const get = k => tr.querySelector(`[data-k="${k}"]`)?.value ?? '';
+                
+                const cap = clampNum(get('cap'), 0);
+                const reg = clampNum(get('reg'), 0);
+                const reserve = clampNum(get('reserve'), 0);
+                
+                const rows = await idbGetAll();
+                const old = rows.find(x => x.id === id);
+                if (!old) {
+                    btn.disabled = false;
+                    return;
+                }
+                
+                const updated = {
+                    ...old,
+                    subject: String(get('subject')).trim() || old.subject,
+                    batch: String(get('batch')).trim() || old.batch,
+                    openDate: String(get('openDate')).trim() || old.openDate,
+                    learnDate: String(get('learnDate')).trim() || old.learnDate,
+                    cap: cap,
+                    reg: reg,
+                    reserve: reserve,
+                    left: Math.max(0, cap - reg)
+                };
+                
+                console.log('💾 Saving data:', updated.subject);
+                await idbPut(updated);
+                await render();
+                refreshTotalsWithCurrentFilter();
+                console.log('✅ Data saved successfully');
+            } catch (error) {
+                console.error('❌ Error saving data:', error);
+                alert('เกิดข้อผิดพลาดในการบันทึกข้อมูล');
+                btn.disabled = false;
+            }
+            return;
+        }
+        
+        if (act === 'del') {
+            if (confirm('ลบรายการนี้หรือไม่?')) {
+                try {
+                    console.log('🗑️ Deleting row:', id);
+                    await idbDelete(id);
+                    await render();
+                    refreshTotalsWithCurrentFilter();
+                    console.log('✅ Row deleted successfully');
+                } catch (error) {
+                    console.error('❌ Error deleting data:', error);
+                    alert('เกิดข้อผิดพลาดในการลบข้อมูล');
+                }
+            }
+            return;
+        }
+    });
+}
+
+function statusBadgeHtml(r) {
+    const pct = r.cap > 0 ? Math.round((r.reg / r.cap) * 100) : 0;
+    if (pct >= 100) return `<span class="badge badge-red">100% เต็มแล้ว</span>`;
+    if (pct >= 80) return `<span class="badge badge-amber">${pct}% ใกล้เต็ม</span>`;
+    return `<span class="badge badge-green">${pct}% รับได้</span>`;
+}
+
+function viewRowHtml(r, i) {
+    return `
+        <td>${i + 1}</td>
+        <td>${escapeHtml(r.subject)}</td>
+        <td>${escapeHtml(r.batch)}</td>
+        <td>${escapeHtml(r.openDate)}</td>
+        <td>${escapeHtml(r.learnDate)}</td>
+        <td>${r.cap}</td>
+        <td>${r.reg}</td>
+        <td>${r.left}</td>
+        <td>${statusBadgeHtml(r)}</td>
+        <td>${r.reserve || 0}</td>
+        <td>
+            <button type="button" class="btn btn-primary text-xs" data-act="edit" data-id="${r.id}">แก้ไข</button>
+            <button type="button" class="btn btn-danger text-xs" data-act="del" data-id="${r.id}">ลบ</button>
+        </td>`;
+}
+
+function editRowHtml(r) {
+    return `
+        <td>-</td>
+        <td><input value="${escapeHtml(r.subject)}" class="in w-[260px]" data-k="subject"></td>
+        <td><input value="${escapeHtml(r.batch)}" class="in w-[80px]" data-k="batch"></td>
+        <td><input value="${escapeHtml(r.openDate)}" class="in w-[120px]" data-k="openDate"></td>
+        <td><input value="${escapeHtml(r.learnDate)}" class="in w-[160px]" data-k="learnDate"></td>
+        <td><input type="number" min="0" value="${r.cap}" class="in" data-k="cap"></td>
+        <td><input type="number" min="0" value="${r.reg}" class="in" data-k="reg"></td>
+        <td class="text-slate-500">${Math.max(0, r.cap - r.reg)}</td>
+        <td class="text-slate-500">คำนวณ</td>
+        <td><input type="number" min="0" value="${r.reserve || 0}" class="in" data-k="reserve"></td>
+        <td>
+            <button type="button" class="btn btn-primary text-xs" data-act="save" data-id="${r.id}">บันทึก</button>
+            <button type="button" class="btn btn-ghost text-xs" data-act="cancel" data-id="${r.id}">ยกเลิก</button>
+        </td>`;
+}
+
+async function refreshBatchFilter(rows) {
+    const sel = byId('batchFilter');
+    if (!sel) return;
+
+    const prev = sel.value;
+    const batches = [...new Set(rows.map(r => r.batch).filter(b => b && b.trim() !== ""))];
+    batches.sort();
+    
+    sel.innerHTML = '<option value="all">ทุกรุ่น</option>' + 
+        batches.map(b => `<option value="${b}">${b}</option>`).join('');
+
+    if (prev && [...sel.options].some(o => o.value === prev)) {
+        sel.value = prev;
+    } else {
+        sel.value = "all";
+    }
+
+    sel.onchange = () => { render(); };
+}
+
+async function render() {
+    try {
+        const rows = await idbGetAll();
+        const sel = byId('batchFilter');
+        let filtered = rows;
+        
+        try {
+            if (sel && sel.value && sel.value !== 'all') {
+                filtered = rows.filter(r => (r.batch || '').toString() === sel.value);
+            }
+        } catch(e) {}
+
+        const tbody = byId('tbody');
+        tbody.innerHTML = '';
+        const frag = document.createDocumentFragment();
+        
+        filtered.forEach((r, i) => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = viewRowHtml(r, i);
+            frag.appendChild(tr);
+        });
+        
+        tbody.appendChild(frag);
+        byId('rowsInfo').textContent = `แสดง ${filtered.length} จาก ${rows.length} รายการ`;
+        byId('updatedAt').textContent = 'ข้อมูลล่าสุด: ' + nowThai();
+        
+        await refreshCharts(filtered);
+        await refreshBatchFilter(rows);
+        await refreshTotals(filtered);
+        
+        console.log('🔄 Table rendered:', filtered.length, 'rows');
+    } catch (error) {
+        console.error('❌ Error rendering table:', error);
+    }
+}
+
+async function refreshCharts(rows) {
+    const status = {full: 0, near: 0, ok: 0};
+    const regBySubject = {};
+    
+    rows.forEach(r => {
+        const pct = r.cap > 0 ? (r.reg / r.cap) * 100 : 0;
+        if (pct >= 100) status.full++;
+        else if (pct >= 80) status.near++;
+        else status.ok++;
+        
+        regBySubject[r.subject] = (regBySubject[r.subject] || 0) + (+r.reg || 0);
+    });
+    
+    try {
+        if (chartStatus) chartStatus.destroy();
+    } catch(e) {}
+    
+    try {
+        if (chartCourse) chartCourse.destroy();
+    } catch(e) {}
+    
+    // Status chart
+    chartStatus = new Chart(byId('chartStatus'), {
+        type: 'doughnut',
+        data: {
+            labels: ['เต็มแล้ว', 'ใกล้เต็ม', 'รับได้'],
+            datasets: [{
+                data: [status.full, status.near, status.ok],
+                backgroundColor: ['#ef4444', '#f59e0b', '#22c55e'],
+                hoverBackgroundColor: ['#ef4444', '#f59e0b', '#22c55e'],
+                borderWidth: 0
+            }]
+        },
+        options: {
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {color: '#d1fae5'}
+                }
+            },
+            maintainAspectRatio: false
+        }
+    });
+    
+    // Course chart
+    const labels = Object.keys(regBySubject);
+    const values = labels.map(k => regBySubject[k]);
+    
+    chartCourse = new Chart(byId('chartCourse'), {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'สมัครแล้ว',
+                data: values,
+                borderWidth: 0
+            }]
+        },
+        options: {
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                x: {
+                    ticks: {
+                        color: '#d1fae5'
+                    },
+                    grid: {
+                        color: 'rgba(148,163,184,.18)'
+                    }
+                },
+                y: {
+                    ticks: {
+                        color: '#d1fae5',
+                        precision: 0
+                    },
+                    grid: {
+                        color: 'rgba(148,163,184,.18)'
+                    }
+                }
+            },
+            maintainAspectRatio: false
+        }
+    });
+}
+
+/* ====== CSV Import core ====== */
+function detectDelimiter(sample) {
+    const first = (sample.split(/\r?\n/).find(l => l.trim().length) || '');
+    const counts = {
+        ',': (first.match(/,/g) || []).length,
+        ';': (first.match(/;/g) || []).length,
+        '\t': (first.match(/\t/g) || []).length
+    };
+    let best = ',', max = -1;
+    for (const [k, v] of Object.entries(counts)) {
+        if (v > max) {
+            max = v;
+            best = k;
+        }
+    }
+    return best;
+}
+
+function parseCSV(text) {
+    if (!text) return {rows: [], delim: ','};
+    const delim = detectDelimiter(text);
+    const lines = text.split(/\r?\n/);
+    const rows = [];
+    for (const s of lines) {
+        if (!s.trim()) continue;
+        const out = [];
+        let cur = '', quote = false;
+        for (let i = 0; i < s.length; i++) {
+            const ch = s[i];
+            if (ch === '"') {
+                if (quote && s[i + 1] === '"') {
+                    cur += '"';
+                    i++;
+                } else {
+                    quote = !quote;
+                }
+            } else if (ch === delim && !quote) {
+                out.push(cur);
+                cur = '';
+            } else {
+                cur += ch;
+            }
+        }
+        out.push(cur);
+        rows.push(out);
+    }
+    return {rows, delim};
+}
+
+const FIELD_LABELS = {
+    subject: ['subject', 'วิชา', 'วิชา/หลักสูตร', 'หลักสูตร'],
+    batch: ['batch', 'รุ่น'],
+    openDate: ['openDate', 'วันเปิดรับสมัคร', 'เปิดรับสมัคร'],
+    learnDate: ['learnDate', 'วันที่เริ่มเรียน', 'เริ่มเรียน'],
+    cap: ['cap', 'จำนวนที่รับ', 'รับ'],
+    reg: ['reg', 'สมัครแล้ว', 'ผู้สมัคร'],
+    reserve: ['reserve', 'สำรอง']
+};
+
+function autoMapHeaders(headers) {
+    const map = {};
+    const used = new Set();
+    const norm = s => String(s || '').trim().toLowerCase();
+    
+    for (const [key, alts] of Object.entries(FIELD_LABELS)) {
+        let idx = headers.findIndex(h => alts.map(a => a.toLowerCase()).includes(norm(h)));
+        if (idx < 0) {
+            for (let i = 0; i < headers.length; i++) {
+                const h = norm(headers[i]);
+                if (used.has(i)) continue;
+                if (alts.some(a => h.includes(a.toLowerCase()))) {
+                    idx = i;
+                    break;
+                }
+            }
+        }
+        if (idx >= 0) {
+            map[key] = idx;
+            used.add(idx);
+        }
+    }
+    return map;
+}
+
+function buildMappingUI(headers, hasHeader) {
+    const target = byId('mapFields');
+    target.innerHTML = '';
+    const wrap = document.createElement('div');
+    wrap.className = 'grid grid-cols-1 md:grid-cols-3 gap-2';
+    
+    const fields = ['subject', 'batch', 'openDate', 'learnDate', 'cap', 'reg', 'reserve'];
+    const auto = hasHeader ? autoMapHeaders(headers) : {};
+    
+    fields.forEach(f => {
+        const box = document.createElement('div');
+        box.className = 'text-sm';
+        const label = document.createElement('div');
+        label.className = 'mb-1 font-bold';
+        label.textContent = `แมปคอลัมน์: ${f}`;
+        const sel = document.createElement('select');
+        sel.className = 'w-full bg-[#072f2a] border border-[#134e4a] rounded p-2';
+        sel.dataset.f = f;
+        
+        const opts = headers.map((h, i) => ({
+            v: i,
+            t: hasHeader ? `${i + 1} — ${h}` : `${i + 1}`
+        }));
+        
+        sel.innerHTML = '<option value="">--เลือกคอลัมน์--</option>' + 
+            opts.map(o => `<option value="${o.v}">${escapeHtml(o.t)}</option>`).join('');
+        
+        if (auto[f] != null) {
+            sel.value = String(auto[f]);
+        }
+        
+        box.appendChild(label);
+        box.appendChild(sel);
+        wrap.appendChild(box);
+    });
+    
+    target.appendChild(wrap);
+    target.classList.remove('hidden');
+}
+
+function readMapping() {
+    const sels = [...document.querySelectorAll('#mapFields select[data-f]')];
+    const map = {};
+    for (const s of sels) {
+        const v = s.value;
+        if (v === '') return null;
+        map[s.dataset.f] = +v;
+    }
+    return map;
+}
+
+function renderPreview(rows, hasHeader) {
+    const pv = byId('csvPreview');
+    pv.innerHTML = '';
+    pv.classList.remove('hidden');
+    
+    const table = document.createElement('table');
+    table.className = 'w-full text-sm';
+    
+    const thead = document.createElement('thead');
+    const trh = document.createElement('tr');
+    const cols = Math.max(...rows.map(r => r.length));
+    
+    for (let c = 0; c < cols; c++) {
+        const th = document.createElement('th');
+        th.className = 'px-2 py-1 bg-[#0a3a2f]';
+        th.textContent = hasHeader ? (rows[0]?.[c] ?? `C${c + 1}`) : `C${c + 1}`;
+        trh.appendChild(th);
+    }
+    
+    thead.appendChild(trh);
+    table.appendChild(thead);
+    
+    const tbody = document.createElement('tbody');
+    const dataRows = hasHeader ? rows.slice(1) : rows.slice(0);
+    
+    dataRows.slice(0, 20).forEach(r => {
+        const tr = document.createElement('tr');
+        r = [...r];
+        for (let c = 0; c < cols; c++) {
+            const td = document.createElement('td');
+            td.className = 'border-top border-[#134e4a] px-2 py-1';
+            td.textContent = r[c] ?? '';
+            tr.appendChild(td);
+        }
+        tbody.appendChild(tr);
+    });
+    
+    table.appendChild(tbody);
+    pv.appendChild(table);
+    byId('btnCommitCSV').disabled = false;
+}
+
+function parseAndPreview() {
+    const text = byId('csvArea').value.trim();
+    if (!text) {
+        alert('กรุณาเลือกไฟล์หรือนำ CSV มาวาง');
+        return;
+    }
+    
+    const parsed = parseCSV(text);
+    const rows = parsed.rows;
+    
+    if (rows.length === 0) {
+        alert('ไม่พบข้อมูลใน CSV');
+        return;
+    }
+    
+    const hasHeader = byId('hasHeader').checked;
+    const headers = hasHeader ? rows[0] : Array.from({length: Math.max(...rows.map(r => r.length))}, (_, i) => `C${i + 1}`);
+    
+    buildMappingUI(headers, hasHeader);
+    renderPreview(rows, hasHeader);
+}
+
+async function commitImport() {
+    const text = byId('csvArea').value.trim();
+    const parsed = parseCSV(text);
+    
+    if (parsed.rows.length === 0) {
+        alert('ไม่พบข้อมูลใน CSV');
+        return;
+    }
+    
+    const map = readMapping();
+    if (!map) {
+        alert('โปรดตั้งค่าแมปคอลัมน์ให้ครบ');
+        return;
+    }
+    
+    const hasHeader = byId('hasHeader').checked;
+    const dataRows = hasHeader ? parsed.rows.slice(1) : parsed.rows.slice(0);
+    const items = [];
+    
+    for (const row of dataRows) {
+        const get = k => row[map[k]] ?? '';
+        const subject = String(get('subject')).trim();
+        if (!subject) continue;
+        
+        const batch = String(get('batch')).trim();
+        const cap = clampNum(get('cap'), 0);
+        const reg = clampNum(get('reg'), 0);
+        const reserve = clampNum(get('reserve'), 0);
+        
+        items.push({
+            id: uid(),
+            subject: subject,
+            batch: batch,
+            openDate: String(get('openDate') ?? '').trim(),
+            learnDate: String(get('learnDate') ?? '').trim(),
+            cap: cap,
+            reg: reg,
+            reserve: reserve,
+            left: Math.max(0, cap - reg)
+        });
+    }
+    
+    try {
+        if (byId('modeReplace').checked) {
+            await idbClear();
+            await idbBulkPut(items);
+        } else {
+            const existing = await idbGetAll();
+            const idx = new Map(existing.map(r => [(r.subject || '') + '|' + (r.batch || ''), r]));
+            
+            for (const it of items) {
+                const key = (it.subject || '') + '|' + (it.batch || '');
+                const old = idx.get(key);
+                if (old) {
+                    await idbPut({...old, ...it, id: old.id});
+                } else {
+                    await idbPut(it);
+                }
+            }
+        }
+        
+        byId('dlgImport').close();
+        await render();
+        refreshTotalsWithCurrentFilter();
+        alert('นำเข้าข้อมูลเรียบร้อย');
+    } catch (error) {
+        console.error('❌ Error importing CSV:', error);
+        alert('เกิดข้อผิดพลาดในการนำเข้าข้อมูล');
+    }
+}
+
+/* ====== Import (default) for SAMPLE_CSV when needed ====== */
+async function importCSV(text) {
+    const parsed = parseCSV(text);
+    const rows = parsed.rows;
+    if (rows.length === 0) return;
+    
+    const map = {subject: 0, batch: 1, openDate: 2, learnDate: 3, cap: 4, reg: 5, reserve: 6};
+    const dataRows = rows;
+    const items = [];
+    
+    for (const row of dataRows) {
+        const cap = clampNum(row[map.cap], 0);
+        const reg = clampNum(row[map.reg], 0);
+        const reserve = clampNum(row[map.reserve], 0);
+        
+        items.push({
+            id: uid(),
+            subject: String(row[map.subject] || '').trim(),
+            batch: String(row[map.batch] || '').trim(),
+            openDate: String(row[map.openDate] || '').trim(),
+            learnDate: String(row[map.learnDate] || '').trim(),
+            cap: cap,
+            reg: reg,
+            reserve: reserve,
+            left: Math.max(0, cap - reg)
+        });
+    }
+    
+    await idbClear();
+    await idbBulkPut(items);
+}
+
+/* ====== Totals ====== */
+async function refreshTotals(rows = null) {
+    try {
+        if (!rows) {
+            rows = await idbGetAll();
+        }
+        
+        let totalReg = 0, full = 0, near = 0, ok = 0;
+        for (const r of rows) {
+            const cap = +r.cap || 0;
+            const reg = +r.reg || 0;
+            totalReg += reg;
+            const pct = cap > 0 ? (reg / cap) * 100 : 0;
+            if (pct >= 100) full++;
+            else if (pct >= 80) near++;
+            else ok++;
+        }
+        
+        byId('totalApplicantsNum').textContent = totalReg.toLocaleString();
+        byId('chipFull').textContent = `เต็มแล้ว ${full}`;
+        byId('chipNear').textContent = `ใกล้เต็ม ${near}`;
+        byId('chipOk').textContent = `รับได้ ${ok}`;
+    } catch(e) {
+        console.error('❌ Error refreshing totals:', e);
+    }
+}
+
+async function refreshTotalsWithCurrentFilter() {
+    const sel = byId('batchFilter');
+    if (sel && sel.value && sel.value !== 'all') {
+        const rows = await idbGetAll();
+        const filtered = rows.filter(r => (r.batch || '').toString() === sel.value);
+        refreshTotals(filtered);
+    } else {
+        refreshTotals();
+    }
+}
+
+// Event listeners for automatic totals refresh
+const _tbodyObserverTarget = byId('tbody');
+if (_tbodyObserverTarget) {
+    new MutationObserver(() => {
+        refreshTotalsWithCurrentFilter();
+    }).observe(_tbodyObserverTarget, {childList: true});
+}
+
+document.body.addEventListener('click', e => {
+    if (e.target.closest('button[data-act]')) {
+        setTimeout(() => {
+            refreshTotalsWithCurrentFilter();
+        }, 100);
+    }
+});
+
+// ==== Auto Adjust Function ====
+function autoAdjustTable() {
+    const table = byId('mainTable');
+    if (!table) return;
+    
+    const headers = table.querySelectorAll('thead th');
+    const rows = table.querySelectorAll('tbody tr');
+    const maxWidths = Array.from(headers).map(() => 0);
+    
+    headers.forEach((header, index) => {
+        const width = header.scrollWidth;
+        maxWidths[index] = Math.max(maxWidths[index], width);
+    });
+    
+    rows.forEach(row => {
+        const cells = row.querySelectorAll('td');
+        cells.forEach((cell, index) => {
+            const width = cell.scrollWidth;
+            maxWidths[index] = Math.max(maxWidths[index], width);
+        });
+    });
+    
+    headers.forEach((header, index) => {
+        header.style.minWidth = `${maxWidths[index] + 20}px`;
+    });
+    
+    const containerWidth = table.parentElement.offsetWidth;
+    const tableWidth = table.scrollWidth;
+    
+    if (tableWidth > containerWidth) {
+        const scaleFactor = containerWidth / tableWidth;
+        const currentFontSize = parseFloat(getComputedStyle(table).fontSize);
+        const newFontSize = Math.max(10, currentFontSize * scaleFactor * 0.9);
+        table.style.fontSize = `${newFontSize}px`;
+    }
+    
+    const cells = table.querySelectorAll('th, td');
+    cells.forEach(cell => {
+        cell.style.padding = '6px 8px';
+    });
+    
+    alert('ปรับตารางอัตโนมัติเรียบร้อยแล้ว');
+}
+
+// ===== JSON Backup / Restore =====
+(async function setupJSONBackup() {
+    function download(filename, text, type = 'application/json') {
+        const blob = new Blob([text], {type});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+            URL.revokeObjectURL(url);
+            a.remove();
+        }, 0);
+    }
+
+    async function exportJSON() {
+        try {
+            const rows = await idbGetAll();
+            const meta = {
+                exportedAt: new Date().toISOString(),
+                app: document.title || 'Courses',
+                db: (typeof DB_NAME !== 'undefined' ? DB_NAME : 'UnknownDB')
+            };
+            const payload = {meta, rows};
+            download((meta.db || 'data') + '_backup.json', JSON.stringify(payload, null, 2));
+        } catch(err) {
+            alert('Export JSON ล้มเหลว: ' + (err && err.message ? err.message : err));
+        }
+    }
+
+    async function importJSONFile(file) {
+        try {
+            const text = await file.text();
+            let payload;
+            try {
+                payload = JSON.parse(text);
+            } catch(e) {
+                alert('ไฟล์ไม่ใช่ JSON ที่ถูกต้อง');
+                return;
+            }
+            
+            const rows = Array.isArray(payload) ? payload : (payload && payload.rows ? payload.rows : []);
+            if (!Array.isArray(rows)) {
+                alert('โครงสร้างไฟล์ไม่ถูกต้อง: ไม่พบรายการ rows');
+                return;
+            }
+            
+            if (!confirm('ยืนยันนำเข้า JSON และแทนที่ข้อมูลทั้งหมดในฐานนี้หรือไม่?')) return;
+            
+            await idbClear();
+            if (rows.length) {
+                const normalized = rows.map((r, i) => {
+                    const o = Object.assign({}, r);
+                    if (!o.id) {
+                        o.id = (r.id || (Date.now().toString(36) + '_' + i));
+                    }
+                    if (typeof o.cap !== 'undefined' && typeof o.reg !== 'undefined') {
+                        const cap = parseInt(o.cap, 10) || 0;
+                        const reg = parseInt(o.reg, 10) || 0;
+                        o.left = Math.max(0, cap - reg);
+                    }
+                    return o;
+                });
+                await idbBulkPut(normalized);
+            }
+            
+            if (typeof render === 'function') await render();
+            if (typeof refreshTotals === 'function') {
+                try {
+                    refreshTotals();
+                } catch(e) {}
+            }
+            alert('นำเข้า JSON สำเร็จ (' + rows.length + ' รายการ)');
+        } catch(err) {
+            alert('Import JSON ล้มเหลว: ' + (err && err.message ? err.message : err));
+        }
+    }
+
+    const btnBackup = document.getElementById('btnBackupJSON');
+    const btnRestore = document.getElementById('btnRestoreJSON');
+    const fileInput = document.getElementById('jsonFileInput');
+    
+    if (btnBackup) {
+        btnBackup.addEventListener('click', exportJSON);
+    }
+    
+    if (btnRestore && fileInput) {
+        btnRestore.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', (e) => {
+            const f = e.target.files && e.target.files[0];
+            if (f) importJSONFile(f);
+            e.target.value = '';
+        });
+    }
+})();
+</script>
+
+</body>
+</html>
